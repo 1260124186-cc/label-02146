@@ -14,13 +14,13 @@ npm install
 npm run dev
 ```
 
-访问地址：http://localhost:8083
+访问地址：http://localhost:8081
 
 ## Services
 
 | 服务名称 | 端口 | 描述 |
 |---------|------|------|
-| frontend-admin | 8083 | 草莓商城前端服务 |
+| frontend-admin | 8081 | 草莓商城前端服务 |
 
 ## 测试账号
 
