@@ -104,7 +104,6 @@
             </Button>
           </form>
 
-          <p class="login-tip">测试账号：admin / 123456</p>
         </div>
       </div>
     </Transition>
@@ -477,13 +476,6 @@ function handleLogout() {
     background: var(--bg-primary);
     border-color: var(--primary);
   }
-}
-
-.login-tip {
-  margin-top: var(--spacing-md);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  text-align: center;
 }
 
 // Confirm Modal
