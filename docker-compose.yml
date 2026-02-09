@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: frontend-admin-2146
+    ports:
+      - "8083:80"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: strawberry-network
