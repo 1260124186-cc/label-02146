@@ -4,34 +4,41 @@
     <section class="banner-section">
       <div class="banner-wrapper">
         <div
-          class="banner-slide"
-          :style="{ background: `linear-gradient(135deg, ${banners[currentBanner].color} 0%, ${banners[currentBanner].colorEnd} 100%)` }"
+          class="banner-track"
+          :style="{ transform: `translateX(-${currentBanner * 100}%)` }"
         >
-          <!-- 左侧内容 -->
-          <div class="banner-content">
-            <span class="banner-tag">限时特惠</span>
-            <h2 class="banner-title">{{ banners[currentBanner].title }}</h2>
-            <p class="banner-desc">{{ banners[currentBanner].subtitle }}</p>
+          <div
+            v-for="(banner, index) in banners"
+            :key="index"
+            class="banner-slide"
+            :style="{ background: `linear-gradient(135deg, ${banner.color} 0%, ${banner.colorEnd} 100%)` }"
+          >
+            <!-- 左侧内容 -->
+            <div class="banner-content">
+              <span class="banner-tag">限时特惠</span>
+              <h2 class="banner-title">{{ banner.title }}</h2>
+              <p class="banner-desc">{{ banner.subtitle }}</p>
 
-            <!-- 轮播控制 -->
-            <div class="banner-controls">
-              <button class="control-btn" @click="prevBanner">‹</button>
-              <div class="banner-dots">
-                <span
-                  v-for="(_, index) in banners"
-                  :key="index"
-                  class="dot"
-                  :class="{ active: currentBanner === index }"
-                  @click="currentBanner = index"
-                />
+              <!-- 轮播控制 -->
+              <div class="banner-controls">
+                <button class="control-btn" @click="prevBanner">‹</button>
+                <div class="banner-dots">
+                  <span
+                    v-for="(_, idx) in banners"
+                    :key="idx"
+                    class="dot"
+                    :class="{ active: currentBanner === idx }"
+                    @click="goToBanner(idx)"
+                  />
+                </div>
+                <button class="control-btn" @click="nextBanner">›</button>
               </div>
-              <button class="control-btn" @click="nextBanner">›</button>
             </div>
-          </div>
 
-          <!-- 右侧草莓图片和按钮 -->
-          <div class="banner-right">
-            <div class="banner-emoji">🍓</div>
+            <!-- 右侧草莓图片 -->
+            <div class="banner-right">
+              <div class="banner-emoji">🍓</div>
+            </div>
           </div>
         </div>
       </div>
@@ -100,6 +107,10 @@ function nextBanner() {
   currentBanner.value = (currentBanner.value + 1) % banners.value.length
 }
 
+function goToBanner(index) {
+  currentBanner.value = index
+}
+
 function startBannerTimer() {
   bannerTimer = setInterval(() => {
     nextBanner()
@@ -131,7 +142,13 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.banner-track {
+  display: flex;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .banner-slide {
+  flex: 0 0 100%;
   position: relative;
   height: 280px;
   display: flex;
