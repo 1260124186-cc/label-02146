@@ -160,14 +160,29 @@ const userStore = useUserStore()
 const orderStore = useOrderStore()
 
 const isCheckingOut = ref(false)
+const showDeleteDialog = ref(false)
+const itemToDelete = ref(null)
 
 function goToProduct(id) {
   router.push(`/product/${id}`)
 }
 
 function handleDelete(item) {
-  cartStore.removeItem(item.id, item.spec)
-  toastStore.success('已移除商品')
+  itemToDelete.value = item
+  showDeleteDialog.value = true
+}
+
+function confirmDelete() {
+  if (itemToDelete.value) {
+    cartStore.removeItem(itemToDelete.value.id, itemToDelete.value.spec)
+    toastStore.success('已移除商品')
+    closeDeleteDialog()
+  }
+}
+
+function closeDeleteDialog() {
+  showDeleteDialog.value = false
+  itemToDelete.value = null
 }
 
 function handleCheckout() {
@@ -198,6 +213,53 @@ function handleCheckout() {
 .cart-page {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+// Delete Confirmation Dialog
+.delete-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-dialog {
+  background: white;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  min-width: 360px;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dialog-content {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xl);
+  line-height: 1.5;
+
+  strong {
+    color: var(--text-primary);
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
 }
 
 .page-header {
