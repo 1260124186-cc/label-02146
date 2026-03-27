@@ -166,8 +166,10 @@ function goToProduct(id) {
 }
 
 function handleDelete(item) {
-  cartStore.removeItem(item.id, item.spec)
-  toastStore.success('已移除商品')
+  if (confirm('确定要删除该商品吗？')) {
+    cartStore.removeItem(item.id, item.spec)
+    toastStore.success('已移除商品')
+  }
 }
 
 function handleCheckout() {
