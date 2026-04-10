@@ -24,6 +24,12 @@ const routes = [
     name: 'Profile',
     component: () => import('@/views/Profile.vue'),
     meta: { title: '我的' }
+  },
+  {
+    path: '/address',
+    name: 'Address',
+    component: () => import('@/views/Address.vue'),
+    meta: { title: '收货地址' }
   }
 ]
 

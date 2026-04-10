@@ -99,6 +99,24 @@
 
       <!-- 结算栏 -->
       <div class="cart-sidebar">
+        <!-- 收货地址 -->
+        <div class="address-card card" v-if="userStore.isLoggedIn" @click="showAddressModal = true">
+          <div class="address-header">
+            <h3 class="address-title">📍 收货地址</h3>
+            <Icon name="chevron-right" :size="18" class="address-arrow" />
+          </div>
+          <div v-if="selectedAddress" class="address-content">
+            <div class="address-user">
+              <span class="address-name">{{ selectedAddress.receiverName }}</span>
+              <span class="address-phone">{{ selectedAddress.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') }}</span>
+            </div>
+            <p class="address-full">{{ selectedAddress.province }} {{ selectedAddress.city }} {{ selectedAddress.district }} {{ selectedAddress.detailAddress }}</p>
+          </div>
+          <div v-else class="address-empty">
+            <span>请选择收货地址</span>
+          </div>
+        </div>
+
         <div class="summary-card card">
           <h3 class="summary-title">订单摘要</h3>
 
@@ -139,16 +157,66 @@
         </div>
       </div>
     </div>
+
+    <!-- 地址选择弹窗 -->
+    <Transition name="modal">
+      <div v-if="showAddressModal" class="modal-mask" @click.self="showAddressModal = false">
+        <div class="address-modal card">
+          <div class="modal-header">
+            <h3 class="modal-title">选择收货地址</h3>
+            <button class="modal-close" @click="showAddressModal = false">
+              <Icon name="x" :size="20" />
+            </button>
+          </div>
+
+          <div class="address-list" v-if="addressStore.addresses.length > 0">
+            <div
+              v-for="address in addressStore.addresses"
+              :key="address.id"
+              class="address-option"
+              :class="{ 'is-selected': selectedAddress?.id === address.id }"
+              @click="selectAddress(address)"
+            >
+              <div class="option-radio">
+                <div class="radio-circle" :class="{ checked: selectedAddress?.id === address.id }">
+                  <Icon v-if="selectedAddress?.id === address.id" name="check" :size="12" />
+                </div>
+              </div>
+              <div class="option-content">
+                <div class="option-user">
+                  <span class="option-name">{{ address.receiverName }}</span>
+                  <span class="option-phone">{{ address.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') }}</span>
+                  <span v-if="address.isDefault" class="option-default">默认</span>
+                </div>
+                <p class="option-address">{{ address.province }} {{ address.city }} {{ address.district }} {{ address.detailAddress }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="address-empty-state">
+            <span class="empty-icon">📍</span>
+            <p>还没有收货地址</p>
+          </div>
+
+          <div class="modal-footer">
+            <Button type="primary" block @click="goToManageAddress">
+              管理收货地址
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useToastStore } from '@/stores/toast'
 import { useUserStore } from '@/stores/user'
 import { useOrderStore } from '@/stores/order'
+import { useAddressStore } from '@/stores/address'
 import Icon from '@/components/common/Icon.vue'
 import Button from '@/components/common/Button.vue'
 import Stepper from '@/components/common/Stepper.vue'
@@ -158,8 +226,18 @@ const cartStore = useCartStore()
 const toastStore = useToastStore()
 const userStore = useUserStore()
 const orderStore = useOrderStore()
+const addressStore = useAddressStore()
 
 const isCheckingOut = ref(false)
+const showAddressModal = ref(false)
+const selectedAddressId = ref(null)
+
+const selectedAddress = computed(() => {
+  if (selectedAddressId.value) {
+    return addressStore.getAddressById(selectedAddressId.value)
+  }
+  return addressStore.defaultAddress
+})
 
 function goToProduct(id) {
   router.push(`/product/${id}`)
@@ -182,15 +260,31 @@ function handleCheckout() {
     return
   }
 
+  if (!selectedAddress.value) {
+    toastStore.warning('请选择收货地址')
+    showAddressModal.value = true
+    return
+  }
+
   isCheckingOut.value = true
 
   setTimeout(() => {
     isCheckingOut.value = false
-    // 创建订单
-    orderStore.createOrder(cartStore.selectedItems)
+    // 创建订单，关联地址信息
+    orderStore.createOrder(cartStore.selectedItems, selectedAddress.value)
     cartStore.clearSelected()
     toastStore.success('下单成功！')
   }, 1500)
+}
+
+function selectAddress(address) {
+  selectedAddressId.value = address.id
+  showAddressModal.value = false
+}
+
+function goToManageAddress() {
+  showAddressModal.value = false
+  router.push('/address')
 }
 </script>
 
@@ -498,6 +592,239 @@ function handleCheckout() {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-align: center;
+}
+
+// Address Card
+.address-card {
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+}
+
+.address-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.address-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.address-arrow {
+  color: var(--text-tertiary);
+}
+
+.address-content {
+  .address-user {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .address-name {
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .address-phone {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  .address-full {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+}
+
+.address-empty {
+  padding: var(--spacing-md) 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+// Address Modal
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-md);
+}
+
+.address-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-full);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+}
+
+.address-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.address-option {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: var(--spacing-sm);
+
+  &:hover,
+  &.is-selected {
+    background: var(--bg-secondary);
+  }
+}
+
+.option-radio {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.radio-circle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-full);
+  color: white;
+  transition: all 0.2s ease;
+
+  &.checked {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+}
+
+.option-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-user {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.option-name {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.option-phone {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.option-default {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+}
+
+.option-address {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.address-empty-state {
+  padding: var(--spacing-3xl);
+  text-align: center;
+
+  .empty-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: var(--spacing-md);
+  }
+
+  p {
+    font-size: var(--font-size-md);
+    color: var(--text-tertiary);
+  }
+}
+
+.modal-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-light);
+}
+
+// Modal Transition
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+
+  .address-modal {
+    transition: transform 0.3s ease;
+  }
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+
+  .address-modal {
+    transform: scale(0.95);
+  }
 }
 
 // 响应式 - 1400px以下改为上下布局

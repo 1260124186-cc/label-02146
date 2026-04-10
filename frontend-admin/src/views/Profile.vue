@@ -45,6 +45,21 @@
         </div>
       </div>
 
+      <!-- 功能菜单 -->
+      <div class="menu-card card" v-if="userStore.isLoggedIn">
+        <h3 class="card-title">更多服务</h3>
+        <div class="menu-list">
+          <div class="menu-item" @click="$router.push('/address')">
+            <div class="menu-icon">📍</div>
+            <div class="menu-content">
+              <span class="menu-label">收货地址</span>
+              <span class="menu-desc">管理我的收货地址</span>
+            </div>
+            <Icon name="chevron-right" :size="20" class="menu-arrow" />
+          </div>
+        </div>
+      </div>
+
       <!-- 最近订单 -->
       <div v-if="userStore.isLoggedIn && orders.length > 0" class="orders-card card">
         <h3 class="card-title">最近订单</h3>
@@ -58,6 +73,10 @@
               <div class="order-meta">
                 <span>{{ order.spec }} × {{ order.quantity }}</span>
                 <span>订单号：{{ order.id }}</span>
+              </div>
+              <div v-if="order.address" class="order-address">
+                <Icon name="map-pin" :size="12" />
+                <span>{{ order.address.receiverName }} {{ order.address.fullAddress }}</span>
               </div>
             </div>
             <span class="order-status" :class="order.status">{{ order.statusText }}</span>
@@ -133,6 +152,7 @@ import { useUserStore } from '@/stores/user'
 import { useCartStore } from '@/stores/cart'
 import { useToastStore } from '@/stores/toast'
 import { useOrderStore } from '@/stores/order'
+import { useAddressStore } from '@/stores/address'
 import Icon from '@/components/common/Icon.vue'
 import Button from '@/components/common/Button.vue'
 
@@ -140,6 +160,7 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const toastStore = useToastStore()
 const orderStore = useOrderStore()
+const addressStore = useAddressStore()
 
 const showLoginModal = ref(false)
 const showLogoutConfirm = ref(false)
@@ -188,6 +209,7 @@ function handleLogout() {
   userStore.logout()
   cartStore.clearCart()
   orderStore.clearOrders()
+  addressStore.clearAddresses()
   showLogoutConfirm.value = false
   toastStore.success('已退出登录')
 }
@@ -312,6 +334,76 @@ function handleLogout() {
   color: var(--text-tertiary);
 }
 
+// Menu Card
+.menu-card {
+  padding: var(--spacing-xl);
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--border-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    .menu-label {
+      color: var(--primary);
+    }
+
+    .menu-arrow {
+      color: var(--primary);
+      transform: translateX(4px);
+    }
+  }
+}
+
+.menu-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-bg);
+  border-radius: var(--radius-md);
+  font-size: 20px;
+}
+
+.menu-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-label {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: color 0.2s ease;
+}
+
+.menu-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.menu-arrow {
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
+}
+
 // Order List
 .order-list {
   display: flex;
@@ -361,6 +453,21 @@ function handleLogout() {
   color: var(--text-tertiary);
 }
 
+.order-address {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .order-status {
   font-size: var(--font-size-xs);
   font-weight: 500;
@@ -369,14 +476,24 @@ function handleLogout() {
   text-align: center;
   white-space: nowrap;
 
-  &.completed {
-    background: var(--success-bg);
-    color: var(--success);
+  &.pending {
+    background: var(--warning-bg);
+    color: var(--warning);
   }
 
   &.shipping {
     background: var(--primary-bg);
     color: var(--primary);
+  }
+
+  &.completed {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  &.refund {
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 }
 
