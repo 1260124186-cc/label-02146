@@ -59,13 +59,161 @@
                 <span>{{ order.spec }} × {{ order.quantity }}</span>
                 <span>订单号：{{ order.id }}</span>
               </div>
+              <div v-if="order.address" class="order-address">
+                <Icon name="map-pin" :size="12" />
+                <span>{{ order.address.name }} {{ order.address.phone }} {{ order.address.province }}{{ order.address.city }}{{ order.address.district }} {{ order.address.detail }}</span>
+              </div>
             </div>
             <span class="order-status" :class="order.status">{{ order.statusText }}</span>
             <div class="order-price">¥{{ order.totalPrice }}</div>
           </div>
         </div>
       </div>
+
+      <!-- 收货地址 -->
+      <div v-if="userStore.isLoggedIn" class="addresses-card card">
+        <div class="address-header">
+          <h3 class="card-title">收货地址</h3>
+          <Button type="primary" size="small" @click="openAddressModal()">
+            <Icon name="plus" :size="14" />
+            添加地址
+          </Button>
+        </div>
+
+        <div v-if="addressStore.addresses.length === 0" class="empty-addresses">
+          <span class="empty-icon">📍</span>
+          <p>暂无收货地址</p>
+          <p class="empty-desc">点击上方按钮添加收货地址</p>
+        </div>
+
+        <div v-else class="address-list">
+          <div v-for="addr in addressStore.addresses" :key="addr.id" class="address-item">
+            <div class="address-main">
+              <div class="address-top">
+                <span class="address-name">{{ addr.name }}</span>
+                <span class="address-phone">{{ addr.phone }}</span>
+                <span v-if="addr.isDefault" class="default-badge">默认</span>
+              </div>
+              <div class="address-full">
+                <Icon name="map-pin" :size="14" />
+                <span>{{ addr.province }}{{ addr.city }}{{ addr.district }} {{ addr.detail }}</span>
+              </div>
+            </div>
+            <div class="address-actions">
+              <button class="action-btn" @click="setDefaultAddress(addr.id)" v-if="!addr.isDefault">设为默认</button>
+              <button class="action-btn edit" @click="openAddressModal(addr)">编辑</button>
+              <button class="action-btn delete" @click="confirmDeleteAddress(addr.id)">删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- 收货地址弹窗 -->
+    <Transition name="modal">
+      <div v-if="showAddressModal" class="modal-mask" @click.self="showAddressModal = false">
+        <div class="modal-content card address-modal">
+          <button class="modal-close" @click="showAddressModal = false">
+            <Icon name="x" :size="20" />
+          </button>
+
+          <div class="modal-header">
+            <span class="modal-logo">📍</span>
+            <h2 class="modal-title">{{ editingAddress ? '编辑收货地址' : '添加收货地址' }}</h2>
+          </div>
+
+          <form class="address-form" @submit.prevent="handleSaveAddress">
+            <div class="form-item">
+              <label class="form-label">收货人 *</label>
+              <input
+                v-model="addressForm.name"
+                type="text"
+                class="form-input"
+                placeholder="请输入收货人姓名"
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">手机号 *</label>
+              <input
+                v-model="addressForm.phone"
+                type="tel"
+                class="form-input"
+                placeholder="请输入手机号"
+                maxlength="11"
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">省份 *</label>
+              <input
+                v-model="addressForm.province"
+                type="text"
+                class="form-input"
+                placeholder="例：北京市"
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">城市 *</label>
+              <input
+                v-model="addressForm.city"
+                type="text"
+                class="form-input"
+                placeholder="例：北京市"
+              />
+            </div>
+            <div class="form-item">
+              <label class="form-label">区/县 *</label>
+              <input
+                v-model="addressForm.district"
+                type="text"
+                class="form-input"
+                placeholder="例：朝阳区"
+              />
+            </div>
+
+            <div class="form-item">
+              <label class="form-label">详细地址 *</label>
+              <textarea
+                v-model="addressForm.detail"
+                class="form-textarea"
+                placeholder="请输入详细地址，如街道、门牌号等"
+                rows="2"
+              ></textarea>
+            </div>
+
+            <div class="form-item">
+              <label class="form-checkbox">
+                <input
+                  type="checkbox"
+                  v-model="addressForm.isDefault"
+                />
+                <span>设为默认收货地址</span>
+              </label>
+            </div>
+
+            <Button type="primary" size="large" block :loading="isSavingAddress">
+              {{ editingAddress ? '保存修改' : '添加地址' }}
+            </Button>
+          </form>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 删除地址确认弹窗 -->
+    <Transition name="modal">
+      <div v-if="showDeleteAddressConfirm" class="modal-mask" @click.self="showDeleteAddressConfirm = false">
+        <div class="confirm-modal card">
+          <div class="confirm-content">
+            <span class="confirm-icon">🗑️</span>
+            <h3 class="confirm-title">确认删除</h3>
+            <p class="confirm-desc">确定要删除这个收货地址吗？</p>
+          </div>
+          <div class="confirm-actions">
+            <Button type="secondary" @click="showDeleteAddressConfirm = false">取消</Button>
+            <Button type="primary" @click="handleDeleteAddress">确认删除</Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- 登录弹窗 -->
     <Transition name="modal">
@@ -133,6 +281,7 @@ import { useUserStore } from '@/stores/user'
 import { useCartStore } from '@/stores/cart'
 import { useToastStore } from '@/stores/toast'
 import { useOrderStore } from '@/stores/order'
+import { useAddressStore } from '@/stores/address'
 import Icon from '@/components/common/Icon.vue'
 import Button from '@/components/common/Button.vue'
 
@@ -140,14 +289,31 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const toastStore = useToastStore()
 const orderStore = useOrderStore()
+const addressStore = useAddressStore()
 
 const showLoginModal = ref(false)
 const showLogoutConfirm = ref(false)
 const isLoggingIn = ref(false)
 
+const showAddressModal = ref(false)
+const showDeleteAddressConfirm = ref(false)
+const isSavingAddress = ref(false)
+const editingAddress = ref(null)
+const pendingDeleteAddressId = ref(null)
+
 const loginForm = reactive({
   username: '',
   password: ''
+})
+
+const addressForm = reactive({
+  name: '',
+  phone: '',
+  province: '',
+  city: '',
+  district: '',
+  detail: '',
+  isDefault: false
 })
 
 const orderStats = computed(() => [
@@ -158,6 +324,69 @@ const orderStats = computed(() => [
 ])
 
 const orders = computed(() => orderStore.recentOrders)
+
+function openAddressModal(address = null) {
+  editingAddress.value = address
+  if (address) {
+    Object.assign(addressForm, {
+      name: address.name,
+      phone: address.phone,
+      province: address.province,
+      city: address.city,
+      district: address.district,
+      detail: address.detail,
+      isDefault: address.isDefault
+    })
+  } else {
+    Object.assign(addressForm, {
+      name: '',
+      phone: '',
+      province: '',
+      city: '',
+      district: '',
+      detail: '',
+      isDefault: addressStore.addresses.length === 0
+    })
+  }
+  showAddressModal.value = true
+}
+
+function handleSaveAddress() {
+  if (!addressForm.name || !addressForm.phone || !addressForm.province || !addressForm.city || !addressForm.district || !addressForm.detail) {
+    toastStore.warning('请填写完整信息')
+    return
+  }
+
+  isSavingAddress.value = true
+
+  setTimeout(() => {
+    isSavingAddress.value = false
+    if (editingAddress.value) {
+      addressStore.updateAddress(editingAddress.value.id, addressForm)
+      toastStore.success('地址已更新')
+    } else {
+      addressStore.addAddress(addressForm)
+      toastStore.success('地址添加成功')
+    }
+    showAddressModal.value = false
+  }, 500)
+}
+
+function setDefaultAddress(id) {
+  addressStore.setDefault(id)
+  toastStore.success('已设为默认地址')
+}
+
+function confirmDeleteAddress(id) {
+  pendingDeleteAddressId.value = id
+  showDeleteAddressConfirm.value = true
+}
+
+function handleDeleteAddress() {
+  addressStore.deleteAddress(pendingDeleteAddressId.value)
+  showDeleteAddressConfirm.value = false
+  toastStore.success('地址已删除')
+}
 
 async function handleLogin() {
   if (!loginForm.username || !loginForm.password) {
@@ -369,14 +598,24 @@ function handleLogout() {
   text-align: center;
   white-space: nowrap;
 
-  &.completed {
-    background: var(--success-bg);
-    color: var(--success);
+  &.pending {
+    background: var(--warning-bg);
+    color: var(--warning);
   }
 
   &.shipping {
     background: var(--primary-bg);
     color: var(--primary);
+  }
+
+  &.completed {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  &.refund {
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 }
 
@@ -385,6 +624,207 @@ function handleLogout() {
   font-weight: 600;
   color: var(--primary);
   text-align: right;
+}
+
+.order-address {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+// Address Card
+.addresses-card {
+  padding: var(--spacing-xl);
+}
+
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.empty-addresses {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-xl);
+
+  .empty-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: var(--spacing-md);
+  }
+
+  p {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .empty-desc {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+  }
+}
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.address-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.address-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.address-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.address-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.address-phone {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.default-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.address-full {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+
+  .icon {
+    margin-top: 2px;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+}
+
+.address-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.action-btn {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &.edit:hover {
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  &.delete:hover {
+    background: var(--error-bg);
+    color: var(--error);
+  }
+}
+
+// Address Modal
+.address-modal {
+  width: 480px;
+  max-width: calc(100% - 32px);
+}
+
+.address-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.form-textarea {
+  min-height: 60px;
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  border: 1.5px solid transparent;
+  transition: all 0.2s ease;
+  resize: vertical;
+  font-family: inherit;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  &:focus {
+    background: var(--bg-primary);
+    border-color: var(--primary);
+    outline: none;
+  }
+}
+
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+  }
+
+  span {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
 }
 
 // Modal
