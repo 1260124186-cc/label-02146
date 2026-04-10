@@ -117,6 +117,28 @@
             <span class="summary-value free">免运费</span>
           </div>
 
+          <!-- 收货地址 -->
+          <div class="address-section" @click="showAddressSelector = true">
+            <div class="summary-row address-header">
+              <span class="summary-label">收货地址</span>
+              <span class="address-change">更换</span>
+            </div>
+            <div v-if="selectedAddress" class="address-info">
+              <div class="address-name-phone">
+                <span class="address-name">{{ selectedAddress.name }}</span>
+                <span class="address-phone">{{ selectedAddress.phone }}</span>
+                <span v-if="selectedAddress.isDefault" class="default-badge">默认</span>
+              </div>
+              <div class="address-detail">
+                {{ selectedAddress.province }}{{ selectedAddress.city }}{{ selectedAddress.district }}{{ selectedAddress.detail }}
+              </div>
+            </div>
+            <div v-else class="address-empty">
+              <span>请选择收货地址</span>
+              <Icon name="chevron-right" :size="16" />
+            </div>
+          </div>
+
           <div class="summary-divider"></div>
 
           <div class="summary-total">
@@ -139,16 +161,61 @@
         </div>
       </div>
     </div>
+
+    <!-- 地址选择弹窗 -->
+    <Transition name="fade">
+      <div v-if="showAddressSelector" class="modal-overlay" @click.self="showAddressSelector = false">
+        <div class="modal-content address-selector-modal">
+          <div class="modal-header">
+            <h3 class="modal-title">选择收货地址</h3>
+            <button class="modal-close" @click="showAddressSelector = false">
+              <Icon name="x" :size="20" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="addressStore.addresses.length > 0" class="address-list">
+              <div
+                v-for="address in addressStore.addresses"
+                :key="address.id"
+                class="address-item"
+                :class="{ selected: selectedAddress && selectedAddress.id === address.id }"
+                @click="selectAddress(address)"
+              >
+                <div class="address-name-phone">
+                  <span class="address-name">{{ address.name }}</span>
+                  <span class="address-phone">{{ address.phone }}</span>
+                  <span v-if="address.isDefault" class="default-badge">默认</span>
+                </div>
+                <div class="address-detail">
+                  {{ address.province }}{{ address.city }}{{ address.district }}{{ address.detail }}
+                </div>
+                <div class="address-check" v-if="selectedAddress && selectedAddress.id === address.id">
+                  <Icon name="check" :size="16" />
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-address">
+              <p>暂无收货地址</p>
+              <Button type="primary" @click="goToManageAddress">去管理地址</Button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <Button type="default" @click="goToManageAddress">管理收货地址</Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useToastStore } from '@/stores/toast'
 import { useUserStore } from '@/stores/user'
 import { useOrderStore } from '@/stores/order'
+import { useAddressStore } from '@/stores/address'
 import Icon from '@/components/common/Icon.vue'
 import Button from '@/components/common/Button.vue'
 import Stepper from '@/components/common/Stepper.vue'
@@ -158,8 +225,18 @@ const cartStore = useCartStore()
 const toastStore = useToastStore()
 const userStore = useUserStore()
 const orderStore = useOrderStore()
+const addressStore = useAddressStore()
 
 const isCheckingOut = ref(false)
+const selectedAddressId = ref(null)
+const showAddressSelector = ref(false)
+
+const selectedAddress = computed(() => {
+  if (selectedAddressId.value) {
+    return addressStore.getAddressById(selectedAddressId.value)
+  }
+  return addressStore.defaultAddress
+})
 
 function goToProduct(id) {
   router.push(`/product/${id}`)
@@ -168,6 +245,22 @@ function goToProduct(id) {
 function handleDelete(item) {
   cartStore.removeItem(item.id, item.spec)
   toastStore.success('已移除商品')
+}
+
+function selectAddress(address) {
+  selectedAddressId.value = address.id
+  showAddressSelector.value = false
+}
+
+function goToManageAddress() {
+  showAddressSelector.value = false
+  router.push('/profile')
+  setTimeout(() => {
+    const addressSection = document.getElementById('address-section')
+    if (addressSection) {
+      addressSection.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, 100)
 }
 
 function handleCheckout() {
@@ -182,12 +275,24 @@ function handleCheckout() {
     return
   }
 
+  if (addressStore.addresses.length === 0) {
+    toastStore.warning('请先添加收货地址')
+    showAddressSelector.value = true
+    return
+  }
+
+  if (!selectedAddress.value) {
+    toastStore.warning('请选择收货地址')
+    showAddressSelector.value = true
+    return
+  }
+
   isCheckingOut.value = true
 
   setTimeout(() => {
     isCheckingOut.value = false
-    // 创建订单
-    orderStore.createOrder(cartStore.selectedItems)
+    // 创建订单并关联地址信息
+    orderStore.createOrder(cartStore.selectedItems, selectedAddress.value)
     cartStore.clearSelected()
     toastStore.success('下单成功！')
   }, 1500)
@@ -498,6 +603,112 @@ function handleCheckout() {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-align: center;
+}
+
+// 地址选择
+.address-section {
+  padding: var(--spacing-sm);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: var(--bg-secondary);
+  }
+}
+
+.address-header {
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.address-change {
+  color: var(--primary);
+  font-size: var(--font-size-sm);
+}
+
+.address-info {
+  .address-name-phone {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .address-name {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .address-phone {
+    color: var(--text-secondary);
+  }
+
+  .address-detail {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+}
+
+.address-empty {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+
+// 地址选择弹窗
+.address-selector-modal {
+  max-width: 500px;
+  width: 90%;
+}
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.address-item {
+  position: relative;
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+
+  &.selected {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .address-check {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    color: var(--primary);
+  }
+}
+
+.empty-address {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-tertiary);
+
+  p {
+    margin-bottom: var(--spacing-lg);
+  }
+}
+
+.modal-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-light);
 }
 
 // 响应式 - 1400px以下改为上下布局

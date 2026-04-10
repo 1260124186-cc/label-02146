@@ -43,22 +43,67 @@ export const useOrderStore = defineStore('order', () => {
   }
 
   // 创建订单
-  function createOrder(items) {
+  function createOrder(items, address = null) {
     const newOrders = items.map(item => ({
       id: generateOrderId(),
       productName: item.name,
       spec: item.spec,
       quantity: item.quantity,
       totalPrice: (item.price * item.quantity).toFixed(2),
-      status: 'shipping',
-      statusText: '配送中',
+      status: 'pending',
+      statusText: '待付款',
       reviewed: false,
-      createTime: new Date().toISOString()
+      createTime: new Date().toISOString(),
+      address: address ? {
+        id: address.id,
+        name: address.name,
+        phone: address.phone,
+        province: address.province,
+        city: address.city,
+        district: address.district,
+        detail: address.detail,
+        isDefault: address.isDefault
+      } : null
     }))
 
     orders.value.unshift(...newOrders)
     saveToStorage()
     return newOrders
+  }
+
+  // 支付订单：待付款 -> 配送中
+  function payOrder(orderId) {
+    const order = orders.value.find(o => o.id === orderId)
+    if (order && order.status === 'pending') {
+      order.status = 'shipping'
+      order.statusText = '配送中'
+      saveToStorage()
+      return true
+    }
+    return false
+  }
+
+  // 确认收货：配送中 -> 已完成
+  function confirmReceive(orderId) {
+    const order = orders.value.find(o => o.id === orderId)
+    if (order && order.status === 'shipping') {
+      order.status = 'completed'
+      order.statusText = '已完成'
+      saveToStorage()
+      return true
+    }
+    return false
+  }
+
+  // 评价订单：标记为已评价
+  function reviewOrder(orderId) {
+    const order = orders.value.find(o => o.id === orderId)
+    if (order && order.status === 'completed' && !order.reviewed) {
+      order.reviewed = true
+      saveToStorage()
+      return true
+    }
+    return false
   }
 
   // 清空订单（退出登录时）
@@ -72,6 +117,9 @@ export const useOrderStore = defineStore('order', () => {
     orderStats,
     recentOrders,
     createOrder,
+    payOrder,
+    confirmReceive,
+    reviewOrder,
     clearOrders
   }
 })
