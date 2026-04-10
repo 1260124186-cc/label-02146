@@ -102,6 +102,44 @@
         <div class="summary-card card">
           <h3 class="summary-title">订单摘要</h3>
 
+          <!-- 收货地址选择 -->
+          <div class="address-section" v-if="userStore.isLoggedIn">
+            <div class="section-header">
+              <span class="section-title">收货地址</span>
+              <Button type="text" size="small" @click="$router.push('/profile')">管理地址</Button>
+            </div>
+
+            <div v-if="addressStore.addresses.length === 0" class="no-address">
+              <span class="no-address-icon">📍</span>
+              <p class="no-address-text">暂无收货地址，请先添加</p>
+              <Button type="primary" size="small" @click="$router.push('/profile')">去添加</Button>
+            </div>
+
+            <div v-else class="address-selector">
+              <div
+                v-for="addr in addressStore.addresses"
+                :key="addr.id"
+                class="address-option"
+                :class="{ selected: selectedAddress?.id === addr.id }"
+                @click="selectedAddressId = addr.id"
+              >
+                <div class="address-info">
+                  <div class="address-top">
+                    <span class="receiver">{{ addr.receiver }}</span>
+                    <span class="phone">{{ addr.phone }}</span>
+                    <span v-if="addr.isDefault" class="default-tag">默认</span>
+                  </div>
+                  <div class="address-detail">
+                    {{ addr.province }}{{ addr.city }}{{ addr.district }} {{ addr.detail }}
+                  </div>
+                </div>
+                <div class="radio" :class="{ checked: selectedAddress?.id === addr.id }">
+                  <Icon v-if="selectedAddress?.id === addr.id" name="check" :size="10" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="summary-row">
             <span class="summary-label">已选商品</span>
             <span class="summary-value">{{ cartStore.selectedCount }} 件</span>
@@ -143,12 +181,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useToastStore } from '@/stores/toast'
 import { useUserStore } from '@/stores/user'
 import { useOrderStore } from '@/stores/order'
+import { useAddressStore } from '@/stores/address'
 import Icon from '@/components/common/Icon.vue'
 import Button from '@/components/common/Button.vue'
 import Stepper from '@/components/common/Stepper.vue'
@@ -158,8 +197,17 @@ const cartStore = useCartStore()
 const toastStore = useToastStore()
 const userStore = useUserStore()
 const orderStore = useOrderStore()
+const addressStore = useAddressStore()
 
 const isCheckingOut = ref(false)
+const selectedAddressId = ref('')
+
+const selectedAddress = computed(() => {
+  if (selectedAddressId.value) {
+    return addressStore.getAddressById(selectedAddressId.value)
+  }
+  return addressStore.defaultAddress
+})
 
 function goToProduct(id) {
   router.push(`/product/${id}`)
@@ -182,12 +230,17 @@ function handleCheckout() {
     return
   }
 
+  if (!selectedAddress.value) {
+    toastStore.warning('请选择收货地址')
+    return
+  }
+
   isCheckingOut.value = true
 
   setTimeout(() => {
     isCheckingOut.value = false
-    // 创建订单
-    orderStore.createOrder(cartStore.selectedItems)
+    // 创建订单，传递地址信息
+    orderStore.createOrder(cartStore.selectedItems, selectedAddress.value)
     cartStore.clearSelected()
     toastStore.success('下单成功！')
   }, 1500)
@@ -198,6 +251,121 @@ function handleCheckout() {
 .cart-page {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.address-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .section-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+  }
+
+  .no-address {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+
+    .no-address-icon {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .no-address-text {
+      color: #666;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+  }
+
+  .address-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .address-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: var(--primary-color);
+    }
+
+    &.selected {
+      border-color: var(--primary-color);
+      background: rgba(102, 126, 234, 0.05);
+    }
+
+    .address-info {
+      flex: 1;
+
+      .address-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 4px;
+
+        .receiver {
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .phone {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .default-tag {
+          padding: 2px 8px;
+          background: var(--primary-color);
+          color: white;
+          border-radius: 10px;
+          font-size: 12px;
+        }
+      }
+
+      .address-detail {
+        color: #666;
+        font-size: 13px;
+      }
+    }
+
+    .radio {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #ddd;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 10px;
+      transition: all 0.2s;
+
+      &.checked {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+      }
+    }
+  }
 }
 
 .page-header {
